@@ -1,6 +1,6 @@
 Process Payment with paypal for Yii2
 =========
-[![Build Status](https://travis-ci.org/kun391/yii2-paypal.svg?branch=master)](https://travis-ci.org/kun391/yii2-paypal)
+[![Build Status](https://travis-ci.org/betsuno/yii2-paypal.svg?branch=master)](https://travis-ci.org/betsuno/yii2-paypal)
 
 Installation
 ====
@@ -8,13 +8,13 @@ Installation
 Add to the composer.json file following section:
 
 ```
-php composer.phar require --prefer-dist kun391/yii2-paypal:"*"
+php composer.phar require --prefer-dist betsuno/yii2-paypal:"*"
 ```
 
 or
 
 ```
-"kun391/yii2-paypal":"dev-master"
+"betsuno/yii2-paypal":"dev-master"
 ```
 
 Add to to you Yii2 config file this part with component settings:
@@ -104,11 +104,11 @@ return \yii\helpers\ArrayHelper::merge(['config' => [
 ```php
 ...
 'payPalClassic'    => [
-    'class'        => 'kun391\paypal\ClassicAPI',
+    'class'        => 'betsuno\paypal\ClassicAPI',
     'pathFileConfig' => '',
 ],
 'payPalRest'               => [
-    'class'        => 'kun391\paypal\RestAPI',
+    'class'        => 'betsuno\paypal\RestAPI',
     'pathFileConfig' => '',
     'successUrl' => '' //full url action return url
     'cancelUrl' => '' //full url action return url
