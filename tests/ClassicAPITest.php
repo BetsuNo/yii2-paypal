@@ -1,6 +1,6 @@
 <?php
 
-use kun391\paypal\ClassicAPI;
+use betsuno\paypal\ClassicAPI;
 
 class ClassicAPITest extends PHPUnit_Framework_TestCase
 {

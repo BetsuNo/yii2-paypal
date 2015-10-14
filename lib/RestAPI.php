@@ -1,6 +1,6 @@
 <?php
 
-namespace kun391\paypal;
+namespace betsuno\paypal;
 
 use PayPal\Rest\ApiContext;
 use PayPal\Auth\OAuthTokenCredential;
@@ -23,224 +23,254 @@ use yii\base\Component;
 
 class RestAPI extends Component
 {
-    public $_apiContext;
-    public $_credentials;
+	public $_apiContext;
+	public $_credentials;
 
-    public $successUrl = "";
-    public $cancelUrl = "";
+	public $successUrl = "";
+	public $cancelUrl = "";
 
-    public $pathFileConfig;
-    /**
-     * @param  $config
-     * @return mixed
-     */
-    public function __construct($config = [])
-    {
-        parent::__construct($config);
+	public $pathFileConfig;
+	/**
+	 * @param  $config
+	 * @return mixed
+	 */
+	public function __construct($config = [])
+	{
+		parent::__construct($config);
 
-        //set config default for paypal
-        if (!$this->pathFileConfig) {
-            $this->pathFileConfig = __DIR__ . '/config-rest.php';
-        }
+		//set config default for paypal
+		if (!$this->pathFileConfig) {
+			$this->pathFileConfig = __DIR__ . '/config-rest.php';
+		}
 
-        // check file config already exist.
-        if (!file_exists($this->pathFileConfig)) {
-            throw new \Exception("File config does not exist.", 500);
-        }
+		// check file config already exist.
+		if (!file_exists($this->pathFileConfig)) {
+			throw new \Exception("File config does not exist.", 500);
+		}
 
-        //set config file
-        $this->_credentials = require($this->pathFileConfig);
+		//set config file
+		$this->_credentials = require($this->pathFileConfig);
 
-        if (!in_array($this->_credentials['config']['mode'], ['sandbox', 'live'])) {
-            throw new \Exception("Error Processing Request", 503);
-        }
+		if (!in_array($this->_credentials['config']['mode'], ['sandbox', 'live'])) {
+			throw new \Exception("Error Processing Request", 503);
+		}
 
-        return $this->_credentials;
-    }
+		return $this->_credentials;
+	}
 
-    /**
-     * Get api context
-     *
-     * @return mixed
-     */
-    public function getConfig()
-    {
-        if (!$this->_apiContext) {
-            $this->setConfig();
-        }
+	/**
+	 * Get api context
+	 *
+	 * @return mixed
+	 */
+	public function getConfig()
+	{
+		if (!$this->_apiContext) {
+			$this->setConfig();
+		}
 
-        return $this->_apiContext;
-    }
+		return $this->_apiContext;
+	}
 
-    private function setConfig()
-    {
-        // ### Api context
-        // Use an ApiContext object to authenticate
-        // API calls. The clientId and clientSecret for the
-        // OAuthTokenCredential class can be retrieved from
-        // developer.paypal.com
-        $this->_apiContext = (new ApiContext(new OAuthTokenCredential(
-                $this->_credentials['client_id'],
-                $this->_credentials['secret'])
-        ));
+	private function setConfig()
+	{
+		// ### Api context
+		// Use an ApiContext object to authenticate
+		// API calls. The clientId and clientSecret for the
+		// OAuthTokenCredential class can be retrieved from
+		// developer.paypal.com
+		$this->_apiContext = (new ApiContext(new OAuthTokenCredential(
+				$this->_credentials['client_id'],
+				$this->_credentials['secret'])
+		));
 
-        $this->_apiContext->setConfig($this->_credentials['config']);
+		$this->_apiContext->setConfig($this->_credentials['config']);
 
-        return $this->_apiContext;
-    }
+		return $this->_apiContext;
+	}
 
-    private function getBaseUrl()
-    {
-        if (PHP_SAPI == 'cli') {
-            $trace=debug_backtrace();
-            $relativePath = substr(dirname($trace[0]['file']), strlen(dirname(dirname(__FILE__))));
-            echo "Warning: This sample may require a server to handle return URL. Cannot execute in command line. Defaulting URL to http://localhost$relativePath \n";
-            return "http://localhost" . $relativePath;
-        }
-        $protocol = 'http';
-        if ($_SERVER['SERVER_PORT'] == 443 || (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) == 'on')) {
-            $protocol .= 's';
-        }
-        $host = $_SERVER['HTTP_HOST'];
-        $request = $_SERVER['PHP_SELF'];
-        return dirname($protocol . '://' . $host . $request);
-    }
+	private function getBaseUrl()
+	{
+		if (PHP_SAPI == 'cli') {
+			$trace=debug_backtrace();
+			$relativePath = substr(dirname($trace[0]['file']), strlen(dirname(dirname(__FILE__))));
+			echo "Warning: This sample may require a server to handle return URL. Cannot execute in command line. Defaulting URL to http://localhost$relativePath \n";
+			return "http://localhost" . $relativePath;
+		}
+		$protocol = 'http';
+		if ($_SERVER['SERVER_PORT'] == 443 || (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) == 'on')) {
+			$protocol .= 's';
+		}
+		$host = $_SERVER['HTTP_HOST'];
+		$request = $_SERVER['PHP_SELF'];
+		return dirname($protocol . '://' . $host . $request);
+	}
 
-    public function createInvoice($params = null)
-    {
-        if (!$params) {
-            return false;
-        }
+	public function createInvoice($params = null)
+	{
+		if (!$params) {
+			return false;
+		}
 
-        $invoice = new Invoice();
-        // ### Invoice Info
-        // Fill in all the information that is
-        // required for invoice APIs
-        $invoice
-            ->setMerchantInfo(new MerchantInfo())
-            ->setBillingInfo(array(new BillingInfo()));
+		$invoice = new Invoice();
+		// ### Invoice Info
+		// Fill in all the information that is
+		// required for invoice APIs
+		$invoice
+			->setMerchantInfo(new MerchantInfo())
+			->setBillingInfo(array(new BillingInfo()));
 
-        // ### Merchant Info
-        // A resource representing merchant information that can be
-        // used to identify merchant
-        $owner_email = $this->_credentials['business_owner'];
+		// ### Merchant Info
+		// A resource representing merchant information that can be
+		// used to identify merchant
+		$owner_email = $this->_credentials['business_owner'];
 
-        $invoice->getMerchantInfo()->setEmail($owner_email);
+		$invoice->getMerchantInfo()->setEmail($owner_email);
 
-        // ### Billing Information
-        // Set the email address for each billing
-        $billing = $invoice->getBillingInfo();
-        $billing[0]->setEmail($params['email']);
+		// ### Billing Information
+		// Set the email address for each billing
+		$billing = $invoice->getBillingInfo();
+		$billing[0]->setEmail($params['email']);
 
-        $items = [];
-        foreach ($params['items'] as $key => $item) {
-            # code...
-            $items[$key] = new InvoiceItem();
-            $items[$key]
-                ->setName($item['name'])
-                ->setQuantity($item['quantity'])
-                ->setUnitPrice(new Currency());
-            $items[$key]->getUnitPrice()
-                ->setCurrency($params['currency'])
-                ->setValue((double) $item['price']);
-        }
-        // ### Items List
-        $invoice->setItems($items);
-        $request = clone $invoice;
+		$items = [];
+		foreach ($params['items'] as $key => $item) {
+			# code...
+			$items[$key] = new InvoiceItem();
+			$items[$key]
+				->setName($item['name'])
+				->setQuantity($item['quantity'])
+				->setUnitPrice(new Currency());
+			$items[$key]->getUnitPrice()
+				->setCurrency($params['currency'])
+				->setValue((double) $item['price']);
+		}
+		// ### Items List
+		$invoice->setItems($items);
+		$request = clone $invoice;
 
-        try {
-            $invoice->create($this->config);
-        } catch (\Exception $ex) {
-            return $ex;
-        }
+		try {
+			$invoice->create($this->config);
+		} catch (\Exception $ex) {
+			return $ex;
+		}
 
-        return $invoice;
-    }
+		return $invoice;
+	}
 
-    public function getLinkCheckOut($params = null)
-    {
-        if (!$params) {
-            return false;
-        }
+	public function getLinkCheckOut($params = null)
+	{
+		if (!$params) {
+			return false;
+		}
 
-         /*Payer
-         A resource representing a Payer that funds a payment
-         For paypal account payments, set payment method
-         to 'paypal'.
-         */
-        $payer = new Payer();
-        $payer->setPaymentMethod("paypal");
+		 /*Payer
+		 A resource representing a Payer that funds a payment
+		 For paypal account payments, set payment method
+		 to 'paypal'.
+		 */
+		$payer = new Payer();
+		$payer->setPaymentMethod("paypal");
 
-        $itemList = new ItemList();
-        // Item must be a array and has one or more item.
-        if (!$params['items']) {
-            return false;
-        }
-        $arrItem = [];
-        foreach ($params['items'] as $key => $item) {
-            $it = new Item();
-            $it->setName($item['name'])
-                ->setCurrency($params['currency'])
-                ->setQuantity($item['quantity'])
-                ->setPrice($item['price']);
-            $arrItem[] = $it;
-        }
-        $itemList->setItems($arrItem);
+		$itemList = new ItemList();
+		// Item must be a array and has one or more item.
+		if (!$params['items']) {
+			return false;
+		}
+		$arrItem = [];
+		foreach ($params['items'] as $key => $item) {
+			$it = new Item();
+			$it->setName($item['name'])
+				->setCurrency($params['currency'])
+				->setQuantity($item['quantity'])
+				->setPrice($item['price']);
+			$arrItem[] = $it;
+		}
+		$itemList->setItems($arrItem);
 
-        $amount = new Amount();
-        $amount->setCurrency($params['currency'])
-               ->setTotal($params['total_price']);
+		$amount = new Amount();
+		$amount->setCurrency($params['currency'])
+			   ->setTotal($params['total_price']);
 
-        $transaction = new Transaction();
-        $transaction->setAmount($amount)
-                    ->setItemList($itemList)
-                    ->setDescription($params['description']);
+		$transaction = new Transaction();
+		$transaction->setAmount($amount)
+					->setItemList($itemList)
+					->setDescription($params['description']);
 
-        // ### Redirect urls
-        // Set the urls that the buyer must be redirected to after
-        // payment approval/ cancellation.
-        $redirectUrls = new RedirectUrls();
-        $baseUrl = $this->getBaseUrl();
-        $redirectUrls->setReturnUrl($baseUrl . $this->successUrl)
-                     ->setCancelUrl($baseUrl . $this->cancelUrl);
-        // ### Payment
-        // A Payment Resource; create one using
-        // the above types and intent set to 'sale'
-        $payment = new Payment();
-        $payment->setIntent("sale")
-                ->setPayer($payer)
-                ->setRedirectUrls($redirectUrls)
-                ->setTransactions([$transaction]);
+		// ### Redirect urls
+		// Set the urls that the buyer must be redirected to after
+		// payment approval/ cancellation.
+		$redirectUrls = new RedirectUrls();
+		$baseUrl = $this->getBaseUrl();
+		$redirectUrls->setReturnUrl($baseUrl . $this->successUrl)
+					 ->setCancelUrl($baseUrl . $this->cancelUrl);
+		// ### Payment
+		// A Payment Resource; create one using
+		// the above types and intent set to 'sale'
+		$payment = new Payment();
+		$payment->setIntent("sale")
+				->setPayer($payer)
+				->setRedirectUrls($redirectUrls)
+				->setTransactions([$transaction]);
 
-        // ### Create Payment
-        // Create a payment by calling the 'create' method
-        // passing it a valid apiContext.
-        try {
-            $payment->create($this->config);
-        } catch (PayPal\Exception\PPConnectionException $ex) {
-            throw new \DataErrorException($ex->getData(), $ex->getMessage());
-        }
-        // ### Get redirect url
-        $redirectUrl = $payment->getApprovalLink();
+		// ### Create Payment
+		// Create a payment by calling the 'create' method
+		// passing it a valid apiContext.
+		try {
+			$payment->create($this->config);
+		} catch (PayPal\Exception\PPConnectionException $ex) {
+			throw new \DataErrorException($ex->getData(), $ex->getMessage());
+		}
+		// ### Get redirect url
+		$redirectUrl = $payment->getApprovalLink();
 
-        return [
-            'payment_id' => $payment->getId(),
-            'status' => $payment->getState(),
-            'redirect_url' => $redirectUrl,
-            'description' => $transaction->getDescription(),
-        ];
-    }
+		return [
+			'payment_id' => $payment->getId(),
+			'status' => $payment->getState(),
+			'redirect_url' => $redirectUrl,
+			'description' => $transaction->getDescription(),
+		];
+	}
 
-    public function getResult($paymentId) {
+	public function getResult($paymentId) {
 
-        $payment = Payment::get($paymentId, $this->config);
+		$payment = Payment::get($paymentId, $this->config);
 
-        $execution = new PaymentExecution();
-        $execution->setPayerId($_GET['PayerID']);
-        $payment = $payment->execute($execution, $this->config);
+		$execution = new PaymentExecution();
+		$execution->setPayerId($_GET['PayerID']);
+		$payment = $payment->execute($execution, $this->config);
 
-        $result = @$payment->toArray();
-        return $result;
-    }
+		$result = @$payment->toArray();
+		return $result;
+	}
+
+	public function checkPayment($params = null){
+		if (!$params) {
+			return false;
+		}
+		$this->setConfig();
+		$payment = Payment::get($params['payment_id'], $this->_apiContext);
+		if (empty($payment->transactions)){
+			return false;
+		}
+		$summ = 0;
+		foreach ($payment->transactions as $transaction) {
+			$summ += floatval($transaction->amount->getTotal());
+		}
+
+		return $summ == $params['price'];
+	}
+
+	public function executePayment($params = null){
+
+		if (!$params) {
+			return false;
+		}
+
+		$payment = Payment::get($params['payment_id'], $this->_apiContext);
+
+		$execution = new PaymentExecution();
+		$execution->setPayerId($params['payer_id']);
+		return $payment->execute($execution, $this->_apiContext);
+	}
 
 }
