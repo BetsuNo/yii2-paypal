@@ -20,13 +20,14 @@
   "type": "library",
 
   "require": {
+    "ext-json": "*",
     "paypal/rest-api-sdk-php": "1.14.*",
     "paypal/adaptiveaccounts-sdk-php": "3.10.*",
     "paypal/merchant-sdk-php": "3.12.*"
   },
 
   "require-dev": {
-    "yiisoft/yii2": ">=2.0.4",
+    "yiisoft/yii2": "2.0.*",
     "fzaninotto/faker": "~1.4",
     "mockery/mockery": "0.9.*",
     "symfony/var-dumper": "~2.7",

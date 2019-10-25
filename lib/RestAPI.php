@@ -1,14 +1,15 @@
-<?php
+<?php /** @noinspection PhpUnused */
 
 namespace betsuno\paypal;
 
+use betsuno\paypal\api\BillingPlan;
+use betsuno\paypal\api\CatalogProduct;
+use betsuno\paypal\api\PricingScheme;
+use betsuno\paypal\api\Subscription;
+use Exception;
+use PayPal\Exception\PayPalConnectionException;
 use PayPal\Rest\ApiContext;
 use PayPal\Auth\OAuthTokenCredential;
-use PayPal\Api\Invoice;
-use PayPal\Api\MerchantInfo;
-use PayPal\Api\BillingInfo;
-use PayPal\Api\InvoiceItem;
-use PayPal\Api\Phone;
 use PayPal\Api\Payer;
 use PayPal\Api\Item;
 use PayPal\Api\ItemList;
@@ -17,22 +18,27 @@ use PayPal\Api\Transaction;
 use PayPal\Api\PaymentExecution;
 use PayPal\Api\RedirectUrls;
 use PayPal\Api\Payment;
-use PayPal\Api\Address;
-use PayPal\Api\Currency;
 use yii\base\Component;
 
+/**
+ * Class RestAPI
+ * @package betsuno\paypal
+ * @property ApiContext $config
+ */
 class RestAPI extends Component
 {
 	public $_apiContext;
 	public $_credentials;
 
-	public $successUrl = "";
-	public $cancelUrl = "";
+	public $successUrl = '';
+	public $cancelUrl = '';
 
 	public $pathFileConfig;
+
 	/**
 	 * @param  $config
 	 * @return mixed
+	 * @throws Exception
 	 */
 	public function __construct($config = [])
 	{
@@ -45,14 +51,14 @@ class RestAPI extends Component
 
 		// check file config already exist.
 		if (!file_exists($this->pathFileConfig)) {
-			throw new \Exception("File config does not exist.", 500);
+			throw new Exception('File config does not exist.', 500);
 		}
 
 		//set config file
 		$this->_credentials = require($this->pathFileConfig);
 
 		if (!in_array($this->_credentials['config']['mode'], ['sandbox', 'live'])) {
-			throw new \Exception("Error Processing Request", 503);
+			throw new Exception('Error Processing Request', 503);
 		}
 
 		return $this->_credentials;
@@ -72,6 +78,9 @@ class RestAPI extends Component
 		return $this->_apiContext;
 	}
 
+	/**
+	 * @return ApiContext
+	 */
 	private function setConfig()
 	{
 		// ### Api context
@@ -89,13 +98,16 @@ class RestAPI extends Component
 		return $this->_apiContext;
 	}
 
+	/**
+	 * @return string
+	 */
 	private function getBaseUrl()
 	{
 		if (PHP_SAPI == 'cli') {
 			$trace=debug_backtrace();
 			$relativePath = substr(dirname($trace[0]['file']), strlen(dirname(dirname(__FILE__))));
 			echo "Warning: This sample may require a server to handle return URL. Cannot execute in command line. Defaulting URL to http://localhost$relativePath \n";
-			return "http://localhost" . $relativePath;
+			return 'http://localhost' . $relativePath;
 		}
 		$protocol = 'http';
 		if ($_SERVER['SERVER_PORT'] == 443 || (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) == 'on')) {
@@ -106,57 +118,11 @@ class RestAPI extends Component
 		return dirname($protocol . '://' . $host . $request);
 	}
 
-	public function createInvoice($params = null)
-	{
-		if (!$params) {
-			return false;
-		}
-
-		$invoice = new Invoice();
-		// ### Invoice Info
-		// Fill in all the information that is
-		// required for invoice APIs
-		$invoice
-			->setMerchantInfo(new MerchantInfo())
-			->setBillingInfo(array(new BillingInfo()));
-
-		// ### Merchant Info
-		// A resource representing merchant information that can be
-		// used to identify merchant
-		$owner_email = $this->_credentials['business_owner'];
-
-		$invoice->getMerchantInfo()->setEmail($owner_email);
-
-		// ### Billing Information
-		// Set the email address for each billing
-		$billing = $invoice->getBillingInfo();
-		$billing[0]->setEmail($params['email']);
-
-		$items = [];
-		foreach ($params['items'] as $key => $item) {
-			# code...
-			$items[$key] = new InvoiceItem();
-			$items[$key]
-				->setName($item['name'])
-				->setQuantity($item['quantity'])
-				->setUnitPrice(new Currency());
-			$items[$key]->getUnitPrice()
-				->setCurrency($params['currency'])
-				->setValue((double) $item['price']);
-		}
-		// ### Items List
-		$invoice->setItems($items);
-		$request = clone $invoice;
-
-		try {
-			$invoice->create($this->config);
-		} catch (\Exception $ex) {
-			return $ex;
-		}
-
-		return $invoice;
-	}
-
+	/**
+	 * @param array|null $params
+	 * @return array|bool
+	 * @throws Exception
+	 */
 	public function getLinkCheckOut($params = null)
 	{
 		if (!$params) {
@@ -169,7 +135,7 @@ class RestAPI extends Component
 		 to 'paypal'.
 		 */
 		$payer = new Payer();
-		$payer->setPaymentMethod("paypal");
+		$payer->setPaymentMethod('paypal');
 
 		$itemList = new ItemList();
 		// Item must be a array and has one or more item.
@@ -207,7 +173,7 @@ class RestAPI extends Component
 		// A Payment Resource; create one using
 		// the above types and intent set to 'sale'
 		$payment = new Payment();
-		$payment->setIntent("sale")
+		$payment->setIntent('sale')
 				->setPayer($payer)
 				->setRedirectUrls($redirectUrls)
 				->setTransactions([$transaction]);
@@ -217,8 +183,8 @@ class RestAPI extends Component
 		// passing it a valid apiContext.
 		try {
 			$payment->create($this->config);
-		} catch (PayPal\Exception\PPConnectionException $ex) {
-			throw new \DataErrorException($ex->getData(), $ex->getMessage());
+		} catch (PayPalConnectionException $ex) {
+			throw new Exception($ex->getData(), $ex->getMessage());
 		}
 		// ### Get redirect url
 		$redirectUrl = $payment->getApprovalLink();
@@ -231,6 +197,10 @@ class RestAPI extends Component
 		];
 	}
 
+	/**
+	 * @param string $paymentId
+	 * @return array
+	 */
 	public function getResult($paymentId) {
 
 		$payment = Payment::get($paymentId, $this->config);
@@ -243,12 +213,16 @@ class RestAPI extends Component
 		return $result;
 	}
 
+	/**
+	 * @param null $params
+	 * @return bool
+	 */
 	public function checkPayment($params = null){
 		if (!$params) {
 			return false;
 		}
 		$this->setConfig();
-		$payment = Payment::get($params['payment_id'], $this->_apiContext);
+		$payment = Payment::get($params['payment_id'], $this->config);
 		if (empty($payment->transactions)){
 			return false;
 		}
@@ -260,17 +234,144 @@ class RestAPI extends Component
 		return $summ == $params['price'];
 	}
 
+	/**
+	 * @param array|null $params
+	 * @return bool|Payment
+	 */
 	public function executePayment($params = null){
 
 		if (!$params) {
 			return false;
 		}
 
-		$payment = Payment::get($params['payment_id'], $this->_apiContext);
+		$payment = Payment::get($params['payment_id'], $this->config);
 
 		$execution = new PaymentExecution();
 		$execution->setPayerId($params['payer_id']);
-		return $payment->execute($execution, $this->_apiContext);
+		return $payment->execute($execution, $this->config);
 	}
 
+	/**
+	 * @param CatalogProduct $product
+	 * @return CatalogProduct
+	 */
+	public function createProduct($product)
+	{
+		return $product->create($this->config);
+	}
+
+	/**
+	 * @param string $id
+	 * @return CatalogProduct
+	 */
+	public function getProduct($id)
+	{
+		return CatalogProduct::get($id, $this->config);
+	}
+
+	/**
+	 * @param array $params
+	 * @return api\CatalogProductsList
+	 */
+	public function listProducts($params)
+	{
+		return CatalogProduct::all($params, $this->config);
+	}
+
+	/**
+	 * @param BillingPlan $plan
+	 * @return BillingPlan
+	 */
+	public function createBillingPlan($plan)
+	{
+		return $plan->create($this->config);
+	}
+
+	/**
+	 * @param string $id
+	 * @return BillingPlan
+	 */
+	public function getBillingPlan($id)
+	{
+		return BillingPlan::get($id, $this->config);
+	}
+
+	/**
+	 * @param array $params
+	 * @return api\BillingPlansList
+	 */
+	public function listBillingPlans($params)
+	{
+		return BillingPlan::all($params, $this->config);
+	}
+
+	/**
+	 * @param BillingPlan $plan
+	 */
+	public function activateBillingPlan($plan)
+	{
+		$plan->activate($this->config);
+	}
+
+	/**
+	 * @param BillingPlan $plan
+	 */
+	public function deactivateBillingPlan($plan)
+	{
+		$plan->deactivate($this->config);
+	}
+
+	/**
+	 * @param BillingPlan $plan
+	 * @param PricingScheme[] $schemes
+	 */
+	public function updateBillingPlanPricingSchemes($plan, $schemes)
+	{
+		$plan->updatePricingSchemes($schemes, $this->config);
+	}
+
+	/**
+	 * @param Subscription $subscription
+	 * @return Subscription
+	 */
+	public function createSubscription($subscription)
+	{
+		return $subscription->create($this->config);
+	}
+
+	/**
+	 * @param string $id
+	 * @return Subscription
+	 */
+	public function getSubscription($id)
+	{
+		return Subscription::get($id, $this->config);
+	}
+
+	/**
+	 * @param Subscription $subscription
+	 * @param string $reason
+	 */
+	public function activateSubscription($subscription, $reason)
+	{
+		$subscription->activate($reason, $this->config);
+	}
+
+	/**
+	 * @param Subscription $subscription
+	 * @param string $reason
+	 */
+	public function cancelSubscription($subscription, $reason)
+	{
+		$subscription->cancel($reason, $this->config);
+	}
+
+	/**
+	 * @param Subscription $subscription
+	 * @param string $reason
+	 */
+	public function suspendSubscription($subscription, $reason)
+	{
+		$subscription->suspend($reason, $this->config);
+	}
 }
